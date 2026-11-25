@@ -14,11 +14,17 @@ Theme (mascot already in engine = angry red bird, Gussa Guru): **Angry Birds x P
 
 | Unit | Topic | Lesson file | Video |
 |---|---|---|---|
-| 4 | Testing (white/black box, cyclomatic complexity, BVA, TDD) | `lessons/L04_testing.py` | TODO (build first) |
-| 5 | Cost, metrics, risk, quality, CMM (FP, COCOMO, LOC, failure %) | `lessons/L05_*.py` | TODO (build second) |
-| 1 | Intro, crisis, SDLC, Structured vs OOAD, Agile vs Traditional | `lessons/L01_*.py` | TODO |
-| 2 | Requirements, SRS, use case, ER, DFD, state diagram | `lessons/L02_*.py` | TODO |
-| 3 | Coupling/cohesion, architecture, process models | `lessons/L03_*.py` | TODO |
+| 4 | Testing (white/black box, cyclomatic complexity, BVA, TDD) | `lessons/L04_testing.py` | DONE `videos/04.mp4` (rendered, about 17 min) |
+| 5 | Cost, metrics, risk, quality, CMM (FP, COCOMO, LOC, failure %) | `lessons/L05_management_quality.py` | Built by Actions (check `videos/05.mp4`) |
+| 1 | Intro, crisis, SDLC, Structured vs OOAD, Agile vs Traditional | `lessons/L01_intro_sdlc_agile.py` | Build triggered (check `videos/01.mp4`) |
+| 2 | Requirements, SRS, use case, ER, DFD, state diagram | `lessons/L02_requirements_modelling.py` | Build triggered (check `videos/02.mp4`) |
+| 3 | Coupling/cohesion, architecture, process models | `lessons/L03_design_architecture_models.py` | Build triggered (check `videos/03.mp4`) |
+
+### Next steps for whoever continues
+1. Open the Actions tab, confirm runs finished, then watch one video per unit and fix any text overflow in the lesson file (run `python render.py preview NN` locally to get PNG frames in `out/prev/`).
+2. Known gaps: a standalone overview video of `docs/MASTER_FLOWCHART.md` was not made (each unit video starts with its own map scene); long videos (Unit 4 is about 17 min) could be split by scene if too slow.
+3. To rebuild a unit: Actions > build-videos > Run workflow > units = `04` (comma separated for several).
+4. Mermaid diagrams are in docs only; videos use shape diagrams drawn by `draw_graph` in `render.py` (items `['graph', nodes, edges, height]` and `['mind', center, spokes]`, nodes = `{id: [x, y, label, shape]}`, shape b box / d diamond / o oval).
 
 Order requested by owner: **Unit 4 and 5 first**, then 1, 2, 3. Last commit before this repo existed: `cn-endsem-coach` (engine reused, see docs/ENGINE.md).
 
