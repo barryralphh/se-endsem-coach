@@ -197,6 +197,13 @@ def left_layout(d, items, x, y, w, sz):
                 cx += cs
                 i += 1
             y += cs + (22 if labs else 0) + 14
+        elif k == 'graph':
+            gh = it[3] if len(it) > 3 else 300
+            draw_graph(d, x, y, w, gh, it[1], it[2])
+            y += gh + 10
+        elif k == 'mind':
+            draw_mind(d, x, y, w, it[1], it[2])
+            y += 310
         elif k == 'plot':
             draw_plot(d, x, y, w, 290, it[1], it[2] if len(it) > 2 else {})
             y += 300
@@ -240,6 +247,88 @@ def right_layout(d, lines, x, y, w, sz, spans=None):
         if spans is not None:
             spans.append((y0, y))
     return y
+
+
+def _bounds(sh, hw, hh, dx, dy):
+    ax, ay = abs(dx) + 1e-9, abs(dy) + 1e-9
+    if sh == 'd':
+        t = 1 / (ax / hw + ay / hh)
+    elif sh == 'o':
+        t = 1 / ((ax / hw) ** 2 + (ay / hh) ** 2) ** 0.5
+    else:
+        t = min(hw / ax, hh / ay)
+    return t
+
+def draw_graph(d, x, y, w, h, nodes, edges):
+    geo = {}
+    for i, (k, v) in enumerate(nodes.items()):
+        fx, fy, lab, sh = v[0], v[1], v[2], v[3]
+        fs = 15
+        f = F(fs, True)
+        while f.getlength(lab) > 210 and fs > 11:
+            fs -= 1
+            f = F(fs, True)
+        tw = f.getlength(lab)
+        if sh == 'd':
+            hw, hh = tw / 2 + 26, 25
+        elif sh == 'o':
+            hw, hh = tw / 2 + 18, 20
+        else:
+            hw, hh = tw / 2 + 12, 17
+        cx = min(max(x + fx * w, x + hw + 4), x + w - hw - 4)
+        cy = y + hh + 4 + fy * (h - 2 * hh - 8)
+        geo[k] = (cx, cy, hw, hh, sh, lab, f, i)
+    for e in edges:
+        a, b = geo[e[0]], geo[e[1]]
+        dx, dy = b[0] - a[0], b[1] - a[1]
+        ta, tb = _bounds(a[4], a[2], a[3], dx, dy), _bounds(b[4], b[2], b[3], dx, dy)
+        p1 = (a[0] + dx * ta, a[1] + dy * ta)
+        p2 = (b[0] - dx * tb, b[1] - dy * tb)
+        d.line([p1, p2], fill=C['yel'], width=3)
+        ln = (dx * dx + dy * dy) ** 0.5 + 1e-9
+        ux, uy = (p2[0] - p1[0]) / ln, (p2[1] - p1[1]) / ln
+        d.polygon([p2, (p2[0] - 13 * ux + 6 * uy, p2[1] - 13 * uy - 6 * ux), (p2[0] - 13 * ux - 6 * uy, p2[1] - 13 * uy + 6 * ux)], fill=C['yel'])
+    for e in edges:
+        if len(e) > 2 and e[2]:
+            a, b = geo[e[0]], geo[e[1]]
+            mx, my = (a[0] + b[0]) / 2, (a[1] + b[1]) / 2
+            f = F(14, True)
+            lw = f.getlength(e[2])
+            d.rounded_rectangle([mx - lw / 2 - 4, my - 11, mx + lw / 2 + 4, my + 11], 6, fill=C['bg'])
+            d.text((mx, my), e[2], font=f, fill=C['grn'], anchor='mm')
+    for k, (cx, cy, hw, hh, sh, lab, f, i) in geo.items():
+        col = (180, 83, 9) if sh == 'd' else ((4, 120, 87) if sh == 'o' else PAL[i % 6])
+        if sh == 'd':
+            d.polygon([(cx, cy - hh), (cx + hw, cy), (cx, cy + hh), (cx - hw, cy)], fill=col, outline=C['yel'])
+        elif sh == 'o':
+            d.ellipse([cx - hw, cy - hh, cx + hw, cy + hh], fill=col, outline=C['yel'], width=2)
+        else:
+            d.rounded_rectangle([cx - hw, cy - hh, cx + hw, cy + hh], 8, fill=col, outline=(255, 255, 255), width=1)
+        d.text((cx, cy), lab, font=f, fill=(255, 255, 255), anchor='mm')
+
+def draw_mind(d, x, y, w, center, spokes, h=300):
+    import math as _m
+    cx, cy = x + w / 2, y + h / 2
+    n = len(spokes)
+    pos = []
+    for i, s in enumerate(spokes):
+        ang = -_m.pi / 2 + 2 * _m.pi * i / n
+        px, py = cx + _m.cos(ang) * (w / 2 - 150), cy + _m.sin(ang) * (h / 2 - 28)
+        pos.append((px, py, s))
+        d.line([cx, cy, px, py], fill=C['dim'], width=3)
+    f = F(20, True)
+    cw = f.getlength(center) / 2 + 20
+    d.ellipse([cx - cw, cy - 30, cx + cw, cy + 30], fill=(180, 83, 9), outline=C['yel'], width=3)
+    d.text((cx, cy), center, font=f, fill=(255, 255, 255), anchor='mm')
+    for i, (px, py, s) in enumerate(pos):
+        fs = 15
+        fb = F(fs, True)
+        while fb.getlength(s) > 270 and fs > 11:
+            fs -= 1
+            fb = F(fs, True)
+        hw = fb.getlength(s) / 2 + 12
+        d.rounded_rectangle([px - hw, py - 18, px + hw, py + 18], 10, fill=PAL[i % 6])
+        d.text((px, py), s, font=fb, fill=(255, 255, 255), anchor='mm')
 
 _scr = Image.new('RGB', (W, H))
 
@@ -408,9 +497,17 @@ def preview(n):
         frame(sc, i, len(scenes), L['title'], len(sc['left']), len(sc['right']), lsz, rsz, 1, full, has_r).save('out/prev/%s_%02d.png' % (n, i))
     print('preview done', len(scenes))
 
-def build(n, mode):
+def build(n, mode, part=0, parts=1):
     L, scenes = load(n)
-    work = 'work/' + n
+    sfx = ('_p%d' % part) if part else ''
+    lo, hi = 0, len(scenes)
+    if part:
+        sz = -(-len(scenes) // parts)
+        lo, hi = (part - 1) * sz, min(len(scenes), part * sz)
+        if lo >= hi:
+            print('empty part, nothing to do')
+            return
+    work = 'work/' + n + sfx
     os.makedirs(work, exist_ok=True)
     os.makedirs('out', exist_ok=True)
     entries = []
@@ -475,6 +572,8 @@ def build(n, mode):
             hold(imgs, D)
 
     for i, sc in enumerate(scenes, 1):
+        if not (lo < i <= hi):
+            continue
         if sc['right'] and not sc.get('full'):
             if sc['left']:
                 emit_plain(dict(sc, right=[]), i, sc['say'])
@@ -490,9 +589,9 @@ def build(n, mode):
         for w in wavs:
             fh.write('file ' + chr(39) + os.path.abspath(w) + chr(39) + NL)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', work + '/wavs.txt', '-c', 'copy', work + '/all.wav'], check=True)
-    out = 'out/%s.mp4' % n
+    out = 'out/%s%s.mp4' % (n, sfx)
     subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-f', 'concat', '-safe', '0', '-i', work + '/frames.txt', '-i', work + '/all.wav', '-vf', 'fps=10,format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '30', '-tune', 'stillimage', '-c:a', 'aac', '-b:a', '64k', '-shortest', out], check=True)
-    with open('out/%s.md' % n, 'w') as fh:
+    with open('out/%s%s.md' % (n, sfx), 'w') as fh:
         fh.write('# ' + L['title'] + NL + NL + '## 10 Golden Points' + NL)
         for i, p in enumerate(L['points'], 1):
             fh.write('%d. %s' % (i, p) + NL)
@@ -510,7 +609,12 @@ if __name__ == '__main__':
     if '--notts' in a:
         mode = 'none'
         a.remove('--notts')
+    part, parts = 0, 1
+    if '--part' in a:
+        i = a.index('--part'); part = int(a[i + 1]); del a[i:i + 2]
+    if '--parts' in a:
+        i = a.index('--parts'); parts = int(a[i + 1]); del a[i:i + 2]
     if a[0] == 'preview':
         preview(a[1])
     else:
-        build(a[1], mode)
+        build(a[1], mode, part, parts)

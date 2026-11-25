@@ -1,0 +1,84 @@
+name: build-videos
+on:
+  workflow_dispatch:
+    inputs:
+      units:
+        description: 'Units to build, comma separated (lesson file must exist)'
+        default: '04,05'
+permissions:
+  contents: write
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.m.outputs.matrix }}
+      units: ${{ steps.m.outputs.units }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: m
+        run: |
+          python3 - <<'PY'
+          import glob, json, os
+          units = [u.strip() for u in '${{ github.event.inputs.units }}'.split(',') if u.strip()]
+          units = [u for u in units if glob.glob('lessons/L%s_*.py' % u)]
+          inc = [{'unit': u, 'part': p} for u in units for p in (1, 2, 3, 4)]
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as f:
+              f.write('matrix=' + json.dumps({'include': inc}) + '\n')
+              f.write('units=' + ','.join(units) + '\n')
+          PY
+  build:
+    needs: plan
+    if: needs.plan.outputs.units != ''
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      max-parallel: 20
+      matrix: ${{ fromJson(needs.plan.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg fonts-dejavu-core espeak-ng
+          pip install pillow edge-tts
+      - name: render part
+        run: python render.py build ${{ matrix.unit }} --part ${{ matrix.part }} --parts 4
+      - uses: actions/upload-artifact@v4
+        with:
+          name: part-${{ matrix.unit }}-${{ matrix.part }}
+          path: out/${{ matrix.unit }}_p${{ matrix.part }}.*
+          if-no-files-found: ignore
+  merge:
+    needs: [plan, build]
+    if: always() && needs.plan.outputs.units != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: part-*
+          path: parts
+          merge-multiple: true
+      - name: join parts
+        run: |
+          mkdir -p videos
+          for u in $(echo "${{ needs.plan.outputs.units }}" | tr ',' ' '); do
+            ls parts/${u}_p*.mp4 2>/dev/null | sort -V | sed "s|^|file '$PWD/|; s|$|'|" > list_$u.txt
+            [ -s list_$u.txt ] || continue
+            ffmpeg -y -loglevel error -f concat -safe 0 -i list_$u.txt -c copy videos/$u.mp4
+            cp parts/${u}_p1.md videos/$u.md 2>/dev/null || true
+          done
+      - name: push
+        run: |
+          git config user.name se-coach-bot
+          git config user.email bot@users.noreply.github.com
+          git add videos
+          git commit -m videos || exit 0
+          git pull --rebase
+          git push
